@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日報タスク分析</title>
+    <link rel="stylesheet" href="task_analysis.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>日報タスク分析</h1>
+            <p class="subtitle">日報データからタスクを抽出・分析・可視化</p>
+        </header>
+
+        <div class="controls">
+            <div class="file-upload-section">
+                <label for="fileInput" class="file-label">
+                    <span class="file-icon">📁</span>
+                    日報ファイルを選択（複数選択可）
+                </label>
+                <input type="file" id="fileInput" multiple accept=".md" style="display: none;">
+                <div id="fileList" class="file-list"></div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label for="dateFrom">開始日:</label>
+                    <input type="date" id="dateFrom">
+                </div>
+                <div class="filter-group">
+                    <label for="dateTo">終了日:</label>
+                    <input type="date" id="dateTo">
+                </div>
+                <div class="filter-group">
+                    <label for="categoryFilter">カテゴリ:</label>
+                    <select id="categoryFilter">
+                        <option value="">すべて</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="searchInput">検索:</label>
+                    <input type="text" id="searchInput" placeholder="タスクを検索...">
+                </div>
+                <button id="analyzeBtn" class="analyze-btn">分析実行</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">総タスク数</div>
+                <div class="stat-value" id="totalTasks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">ユニークタスク</div>
+                <div class="stat-value" id="uniqueTasks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">分析期間</div>
+                <div class="stat-value" id="dateRange">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">完了率</div>
+                <div class="stat-value" id="completionRate">0%</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h2>タスク頻度トップ10</h2>
+                <canvas id="frequencyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>カテゴリ別タスク数</h2>
+                <canvas id="categoryChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>日付別タスク数</h2>
+                <canvas id="timelineChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>予定 vs 成果</h2>
+                <canvas id="completionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="task-table-section">
+            <h2>タスク一覧</h2>
+            <div class="table-controls">
+                <div class="table-info">
+                    <span id="taskCount">0件のタスク</span>
+                </div>
+                <div class="table-actions">
+                    <button id="exportBtn" class="export-btn">CSVエクスポート</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table id="taskTable" class="task-table">
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>タスク</th>
+                            <th>カテゴリ</th>
+                            <th>タイプ</th>
+                            <th>出現回数</th>
+                            <th>完了状況</th>
+                        </tr>
+                    </thead>
+                    <tbody id="taskTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="task_analysis.js"></script>
+</body>
+</html>
+
