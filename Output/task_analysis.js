@@ -49,11 +49,17 @@ function parseReport(content, filename) {
         date: null,
         tasks: [],
         completed: [],
-        planned: []
+        planned: [],
+        priority: {
+            high: [],
+            medium: [],
+            low: []
+        }
     };
 
     let currentSection = '';
     let taskList = [];
+    let priorityText = '';
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -63,6 +69,14 @@ function parseReport(content, filename) {
             const dateMatch = line.match(/\*\*日付\*\*:\s*(.+)/);
             if (dateMatch) {
                 report.date = parseDate(dateMatch[1]);
+            }
+        }
+
+        // 優先度を抽出
+        if (line.startsWith('**優先度**:')) {
+            const priorityMatch = line.match(/\*\*優先度\*\*:\s*(.+)/);
+            if (priorityMatch) {
+                priorityText = priorityMatch[1];
             }
         }
 
@@ -112,6 +126,23 @@ function parseReport(content, filename) {
         }
     }
 
+    // 優先度を解析
+    if (priorityText) {
+        const highMatch = priorityText.match(/高\[([^\]]+)\]/);
+        const mediumMatch = priorityText.match(/中\[([^\]]+)\]/);
+        const lowMatch = priorityText.match(/低\[([^\]]+)\]/);
+
+        if (highMatch) {
+            report.priority.high = highMatch[1].split(/[、,]/).map(t => t.trim()).filter(t => t);
+        }
+        if (mediumMatch) {
+            report.priority.medium = mediumMatch[1].split(/[、,]/).map(t => t.trim()).filter(t => t);
+        }
+        if (lowMatch) {
+            report.priority.low = lowMatch[1].split(/[、,]/).map(t => t.trim()).filter(t => t);
+        }
+    }
+
     return report;
 }
 
@@ -141,6 +172,28 @@ function normalizeTask(task) {
     return normalized;
 }
 
+// タスクの優先度を判定する関数
+function getTaskPriority(task, report) {
+    if (!report.priority) return null;
+    
+    const taskLower = task.toLowerCase();
+    
+    // 高優先度のタスクをチェック
+    if (report.priority.high && report.priority.high.some(p => taskLower.includes(p.toLowerCase()))) {
+        return 'high';
+    }
+    // 中優先度のタスクをチェック
+    if (report.priority.medium && report.priority.medium.some(p => taskLower.includes(p.toLowerCase()))) {
+        return 'medium';
+    }
+    // 低優先度のタスクをチェック
+    if (report.priority.low && report.priority.low.some(p => taskLower.includes(p.toLowerCase()))) {
+        return 'low';
+    }
+    
+    return null;
+}
+
 // タスクを抽出して統合
 function extractTasks() {
     allTasks = [];
@@ -154,6 +207,7 @@ function extractTasks() {
             
             if (!taskMap.has(key)) {
                 const category = categorizeTask(task);
+                const priority = getTaskPriority(task, report);
                 taskMap.set(key, {
                     id: key,
                     text: task,
@@ -162,7 +216,8 @@ function extractTasks() {
                     date: report.date,
                     type: 'tasks',
                     count: 1,
-                    completed: false
+                    completed: false,
+                    priority: priority
                 });
             } else {
                 taskMap.get(key).count++;
@@ -176,6 +231,7 @@ function extractTasks() {
             
             if (!taskMap.has(key)) {
                 const category = categorizeTask(task);
+                const priority = getTaskPriority(task, report);
                 taskMap.set(key, {
                     id: key,
                     text: task,
@@ -184,7 +240,8 @@ function extractTasks() {
                     date: report.date,
                     type: 'planned',
                     count: 1,
-                    completed: false
+                    completed: false,
+                    priority: priority
                 });
             } else {
                 taskMap.get(key).count++;
@@ -198,6 +255,7 @@ function extractTasks() {
             
             if (!taskMap.has(key)) {
                 const category = categorizeTask(task);
+                const priority = getTaskPriority(task, report);
                 taskMap.set(key, {
                     id: key,
                     text: task,
@@ -206,7 +264,8 @@ function extractTasks() {
                     date: report.date,
                     type: 'completed',
                     count: 1,
-                    completed: true
+                    completed: true,
+                    priority: priority
                 });
             } else {
                 taskMap.get(key).count++;
@@ -298,7 +357,7 @@ function updateStats() {
 }
 
 // グラフを更新
-let frequencyChart, categoryChart, timelineChart, completionChart;
+let frequencyChart, categoryChart, timelineChart, completionChart, priorityChart, categoryTrendChart, completionTimeChart;
 
 function updateCharts() {
     // タスク頻度トップ10
@@ -462,6 +521,239 @@ function updateCharts() {
             }
         }
     });
+
+    // 優先度別タスク数と完了率
+    const priorityStats = { 
+        high: { total: 0, completed: 0 }, 
+        medium: { total: 0, completed: 0 }, 
+        low: { total: 0, completed: 0 } 
+    };
+    
+    filteredTasks.forEach(task => {
+        if (task.priority) {
+            priorityStats[task.priority].total++;
+            if (task.completed || task.type === 'completed' || task.type === 'both') {
+                priorityStats[task.priority].completed++;
+            }
+        }
+    });
+
+    // 優先度別タスク数と完了率を表示
+    if (priorityChart) priorityChart.destroy();
+    const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+    priorityChart = new Chart(priorityCtx, {
+        type: 'bar',
+        data: {
+            labels: ['高', '中', '低'],
+            datasets: [
+                {
+                    label: 'タスク数',
+                    data: [
+                        priorityStats.high.total,
+                        priorityStats.medium.total,
+                        priorityStats.low.total
+                    ],
+                    backgroundColor: [
+                        'rgba(255, 107, 107, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(80, 200, 120, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 107, 107, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(80, 200, 120, 1)'
+                    ],
+                    borderWidth: 1
+                },
+                {
+                    label: '完了数',
+                    data: [
+                        priorityStats.high.completed,
+                        priorityStats.medium.completed,
+                        priorityStats.low.completed
+                    ],
+                    backgroundColor: [
+                        'rgba(255, 107, 107, 0.4)',
+                        'rgba(255, 206, 86, 0.4)',
+                        'rgba(80, 200, 120, 0.4)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 107, 107, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(80, 200, 120, 1)'
+                    ],
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const datasetIndex = context.datasetIndex;
+                            const dataIndex = context.dataIndex;
+                            const priority = ['high', 'medium', 'low'][dataIndex];
+                            const stats = priorityStats[priority];
+                            if (datasetIndex === 0 && stats.total > 0) {
+                                const completionRate = Math.round((stats.completed / stats.total) * 100);
+                                return `完了率: ${completionRate}%`;
+                            }
+                            return '';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // カテゴリ別トレンド
+    const categoryTrendData = {};
+    const allDates = new Set();
+    
+    filteredTasks.forEach(task => {
+        if (task.date) {
+            const year = task.date.getFullYear();
+            const month = String(task.date.getMonth() + 1).padStart(2, '0');
+            const day = String(task.date.getDate()).padStart(2, '0');
+            const dateStr = `${year}/${month}/${day}`;
+            allDates.add(dateStr);
+            
+            if (!categoryTrendData[task.category]) {
+                categoryTrendData[task.category] = {};
+            }
+            categoryTrendData[task.category][dateStr] = (categoryTrendData[task.category][dateStr] || 0) + task.count;
+        }
+    });
+
+    const sortedDates = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+    const topCategories = Object.keys(categoryTrendData).slice(0, 5);
+    
+    const datasets = topCategories.map((category, index) => {
+        const colors = [
+            'rgba(74, 144, 226, 1)',
+            'rgba(80, 200, 120, 1)',
+            'rgba(255, 107, 107, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(153, 102, 255, 1)'
+        ];
+        return {
+            label: category,
+            data: sortedDates.map(date => categoryTrendData[category][date] || 0),
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length].replace('1)', '0.1)'),
+            tension: 0.4,
+            fill: false
+        };
+    });
+
+    if (categoryTrendChart) categoryTrendChart.destroy();
+    const trendCtx = document.getElementById('categoryTrendChart').getContext('2d');
+    categoryTrendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: sortedDates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            }
+        }
+    });
+
+    // タスク完了時間分析
+    const completionTimes = [];
+    reportData.forEach((report, index) => {
+        if (!report.date) return;
+        
+        const reportDate = new Date(report.date);
+        report.planned.forEach(plannedTask => {
+            const normalized = normalizeTask(plannedTask);
+            
+            // 後続の日報で完了タスクを探す
+            for (let j = index + 1; j < reportData.length && j < index + 10; j++) {
+                const nextReport = reportData[j];
+                if (!nextReport.date) continue;
+                
+                const found = nextReport.completed.some(completedTask => {
+                    const completedNormalized = normalizeTask(completedTask);
+                    return normalized.includes(completedNormalized.substring(0, 10)) || 
+                           completedNormalized.includes(normalized.substring(0, 10));
+                });
+                
+                if (found) {
+                    const nextDate = new Date(nextReport.date);
+                    const daysDiff = Math.round((nextDate - reportDate) / (1000 * 60 * 60 * 24));
+                    if (daysDiff >= 0 && daysDiff <= 7) {
+                        completionTimes.push(daysDiff);
+                    }
+                    break;
+                }
+            }
+        });
+    });
+
+    // 完了時間の分布を作成
+    const timeBins = { '即日': 0, '1日': 0, '2日': 0, '3日': 0, '4-7日': 0 };
+    completionTimes.forEach(days => {
+        if (days === 0) timeBins['即日']++;
+        else if (days === 1) timeBins['1日']++;
+        else if (days === 2) timeBins['2日']++;
+        else if (days === 3) timeBins['3日']++;
+        else if (days >= 4 && days <= 7) timeBins['4-7日']++;
+    });
+
+    if (completionTimeChart) completionTimeChart.destroy();
+    const timeCtx = document.getElementById('completionTimeChart').getContext('2d');
+    completionTimeChart = new Chart(timeCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(timeBins),
+            datasets: [{
+                label: 'タスク数',
+                data: Object.values(timeBins),
+                backgroundColor: 'rgba(74, 144, 226, 0.8)',
+                borderColor: 'rgba(74, 144, 226, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
 }
 
 // テーブルを更新
@@ -607,9 +899,38 @@ document.getElementById('dateFrom').addEventListener('change', analyze);
 document.getElementById('dateTo').addEventListener('change', analyze);
 document.getElementById('exportBtn').addEventListener('click', exportToCSV);
 
-// 初期化時に日報ファイルを自動読み込み（可能な場合）
+// 自動読み込み機能
+async function loadReportsAutomatically() {
+    const statusDiv = document.getElementById('autoLoadStatus');
+    
+    try {
+        // report_data.jsonからデータを読み込む
+        const response = await fetch('report_data.json');
+        if (response.ok) {
+            const data = await response.json();
+            reportData = data.map(report => {
+                // 日付文字列をDateオブジェクトに変換
+                if (report.date) {
+                    report.date = new Date(report.date);
+                }
+                return report;
+            });
+            
+            statusDiv.innerHTML = `<div class="status-success">✅ ${reportData.length}件の日報を自動読み込みしました</div>`;
+            
+            // 自動的に分析実行
+            analyze();
+        } else {
+            throw new Error('report_data.jsonが見つかりません');
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<div class="status-info">💡 日報ファイルを手動で選択するか、generate_report_data.jsを実行してreport_data.jsonを生成してください<br><small>（ローカルファイルを開く場合は、ローカルサーバーが必要です）</small></div>`;
+        console.log('自動読み込みエラー:', error.message);
+    }
+}
+
+// 初期化時に日報ファイルを自動読み込み
 window.addEventListener('DOMContentLoaded', () => {
-    // ファイル選択を促すメッセージを表示
-    console.log('日報ファイルを選択してください。');
+    loadReportsAutomatically();
 });
 

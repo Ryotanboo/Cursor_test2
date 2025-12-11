@@ -18,10 +18,11 @@
             <div class="file-upload-section">
                 <label for="fileInput" class="file-label">
                     <span class="file-icon">📁</span>
-                    日報ファイルを選択（複数選択可）
+                    日報ファイルを選択（複数選択可・オプション）
                 </label>
                 <input type="file" id="fileInput" multiple accept=".md" style="display: none;">
                 <div id="fileList" class="file-list"></div>
+                <div id="autoLoadStatus" class="auto-load-status"></div>
             </div>
 
             <div class="filter-section">
@@ -83,6 +84,18 @@
                 <h2>予定 vs 成果</h2>
                 <canvas id="completionChart"></canvas>
             </div>
+            <div class="chart-container">
+                <h2>優先度別タスク数</h2>
+                <canvas id="priorityChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>カテゴリ別トレンド</h2>
+                <canvas id="categoryTrendChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>タスク完了時間分布</h2>
+                <canvas id="completionTimeChart"></canvas>
+            </div>
         </div>
 
         <div class="task-table-section">
@@ -117,4 +130,5 @@
     <script src="task_analysis.js"></script>
 </body>
 </html>
+
 
